@@ -509,6 +509,37 @@ function Index() {
               <span className="w-8 text-center text-sm font-bold">{size}</span>
             </div>
 
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-foreground/70" title="How easily a pinch is detected. Lower = fingers must touch; higher = looser.">
+                Pinch
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={sensitivity}
+                onChange={(e) => setSensitivity(parseInt(e.target.value))}
+                disabled={drawMode === "index"}
+                className="flex-1 min-w-[140px] accent-[oklch(0.62_0.27_330)] disabled:opacity-40"
+              />
+              <span className="w-8 text-center text-sm font-bold">{sensitivity}</span>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-foreground/70" title="Smooths shaky tracking. Higher = steadier lines, slightly more lag.">
+                Smooth
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={smoothing}
+                onChange={(e) => setSmoothing(parseInt(e.target.value))}
+                className="flex-1 min-w-[140px] accent-[oklch(0.62_0.27_330)]"
+              />
+              <span className="w-8 text-center text-sm font-bold">{smoothing}</span>
+            </div>
+
             <div className="mt-4 flex flex-wrap gap-2">
               <span className="self-center text-xs font-bold uppercase tracking-wider text-foreground/70">Mode</span>
               {(["pinch", "index"] as const).map((m) => (
