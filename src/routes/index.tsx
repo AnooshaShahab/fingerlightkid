@@ -5,11 +5,11 @@ import estrellas from "@/assets/estrellas.asset.json";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Finger Light ✨ — Draw with your hand" },
+      { title: "Finger Light — Draw with your hand" },
       {
         name: "description",
         content:
-          "Draw on a canvas using just your finger and webcam. Mobile-friendly hand tracking art.",
+          "Draw on a canvas using just your hand and webcam. Mobile-friendly full hand tracking art.",
       },
       { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1" },
     ],
@@ -34,6 +34,19 @@ const swatches = [
   { name: "black", color: "#1a1a2e" },
 ];
 
+type Brush = "pen" | "marker" | "watercolor" | "airbrush" | "neon" | "sparkle";
+const brushes: Brush[] = ["pen", "marker", "watercolor", "airbrush", "neon", "sparkle"];
+
+// MediaPipe hand connections (pairs of landmark indices)
+const HAND_CONNECTIONS: [number, number][] = [
+  [0, 1], [1, 2], [2, 3], [3, 4],
+  [0, 5], [5, 6], [6, 7], [7, 8],
+  [5, 9], [9, 10], [10, 11], [11, 12],
+  [9, 13], [13, 14], [14, 15], [15, 16],
+  [13, 17], [17, 18], [18, 19], [19, 20],
+  [0, 17],
+];
+
 function Index() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -45,17 +58,19 @@ function Index() {
 
   const [color, setColor] = useState(swatches[0].color);
   const [size, setSize] = useState(8);
-  const [status, setStatus] = useState("Tap start to enable webcam");
+  const [status, setStatus] = useState("Allow camera to start drawing");
   const [running, setRunning] = useState(false);
   const [drawMode, setDrawMode] = useState<"pinch" | "index">("pinch");
+  const [brush, setBrush] = useState<Brush>("pen");
 
-  // refs that hold latest values for the rAF loop
   const colorRef = useRef(color);
   const sizeRef = useRef(size);
   const modeRef = useRef(drawMode);
+  const brushRef = useRef(brush);
   useEffect(() => { colorRef.current = color; }, [color]);
   useEffect(() => { sizeRef.current = size; }, [size]);
   useEffect(() => { modeRef.current = drawMode; }, [drawMode]);
+  useEffect(() => { brushRef.current = brush; }, [brush]);
 
   const resizeCanvases = useCallback(() => {
     const wrap = wrapRef.current;
@@ -92,7 +107,7 @@ function Index() {
     };
   }, [resizeCanvases]);
 
-  const start = async () => {
+  const start = useCallback(async () => {
     try {
       setStatus("Requesting camera…");
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -115,18 +130,132 @@ function Index() {
             "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
           delegate: "GPU",
         },
-        numHands: 1,
+        numHands: 2,
         runningMode: "VIDEO",
       });
       landmarkerRef.current = landmarker;
 
       resizeCanvases();
       setRunning(true);
-      setStatus("✨ Move your hand in front of the camera");
+      setStatus("");
       loop();
     } catch (e: any) {
       setStatus("Camera blocked: " + (e?.message || e));
     }
+  }, [resizeCanvases]);
+
+  // auto-start on mount
+  useEffect(() => {
+    start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const strokeSegment = (
+    dctx: CanvasRenderingContext2D,
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+  ) => {
+    const dpr = window.devicePixelRatio || 1;
+    const w = sizeRef.current * dpr;
+    const col = colorRef.current;
+    dctx.save();
+    dctx.lineCap = "round";
+    dctx.lineJoin = "round";
+
+    switch (brushRef.current) {
+      case "pen": {
+        dctx.globalAlpha = 1;
+        dctx.strokeStyle = col;
+        dctx.lineWidth = w * 0.5;
+        dctx.beginPath();
+        dctx.moveTo(from.x, from.y);
+        dctx.lineTo(to.x, to.y);
+        dctx.stroke();
+        break;
+      }
+      case "marker": {
+        dctx.globalAlpha = 0.6;
+        dctx.strokeStyle = col;
+        dctx.lineWidth = w * 1.5;
+        dctx.beginPath();
+        dctx.moveTo(from.x, from.y);
+        dctx.lineTo(to.x, to.y);
+        dctx.stroke();
+        break;
+      }
+      case "watercolor": {
+        dctx.globalAlpha = 0.18;
+        dctx.strokeStyle = col;
+        for (let i = 0; i < 4; i++) {
+          dctx.lineWidth = w * (1.2 + i * 0.6);
+          dctx.beginPath();
+          dctx.moveTo(from.x + (Math.random() - 0.5) * w, from.y + (Math.random() - 0.5) * w);
+          dctx.lineTo(to.x + (Math.random() - 0.5) * w, to.y + (Math.random() - 0.5) * w);
+          dctx.stroke();
+        }
+        break;
+      }
+      case "airbrush": {
+        dctx.globalAlpha = 0.08;
+        dctx.fillStyle = col;
+        const r = w * 2.2;
+        const steps = 14;
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const x = from.x + (to.x - from.x) * t;
+          const y = from.y + (to.y - from.y) * t;
+          for (let j = 0; j < 6; j++) {
+            const a = Math.random() * Math.PI * 2;
+            const rr = Math.random() * r;
+            dctx.beginPath();
+            dctx.arc(x + Math.cos(a) * rr, y + Math.sin(a) * rr, 1.5, 0, Math.PI * 2);
+            dctx.fill();
+          }
+        }
+        break;
+      }
+      case "neon": {
+        dctx.globalAlpha = 1;
+        dctx.shadowBlur = w * 2;
+        dctx.shadowColor = col;
+        dctx.strokeStyle = "#ffffff";
+        dctx.lineWidth = w * 0.6;
+        dctx.beginPath();
+        dctx.moveTo(from.x, from.y);
+        dctx.lineTo(to.x, to.y);
+        dctx.stroke();
+        dctx.strokeStyle = col;
+        dctx.lineWidth = w * 1.2;
+        dctx.globalAlpha = 0.5;
+        dctx.stroke();
+        break;
+      }
+      case "sparkle": {
+        dctx.globalAlpha = 0.9;
+        dctx.fillStyle = col;
+        const count = 6;
+        for (let i = 0; i < count; i++) {
+          const t = Math.random();
+          const x = from.x + (to.x - from.x) * t + (Math.random() - 0.5) * w * 2;
+          const y = from.y + (to.y - from.y) * t + (Math.random() - 0.5) * w * 2;
+          const s = Math.random() * w * 0.6 + 1;
+          // 4-point star
+          dctx.beginPath();
+          dctx.moveTo(x, y - s);
+          dctx.lineTo(x + s * 0.3, y - s * 0.3);
+          dctx.lineTo(x + s, y);
+          dctx.lineTo(x + s * 0.3, y + s * 0.3);
+          dctx.lineTo(x, y + s);
+          dctx.lineTo(x - s * 0.3, y + s * 0.3);
+          dctx.lineTo(x - s, y);
+          dctx.lineTo(x - s * 0.3, y - s * 0.3);
+          dctx.closePath();
+          dctx.fill();
+        }
+        break;
+      }
+    }
+    dctx.restore();
   };
 
   const loop = () => {
@@ -145,50 +274,70 @@ function Index() {
         const res = landmarker.detectForVideo(video, ts);
         octx.clearRect(0, 0, overlay.width, overlay.height);
 
-        if (res.landmarks && res.landmarks[0]) {
-          const lm = res.landmarks[0];
-          // mirror x because video is mirrored
-          const index = lm[8];
-          const thumb = lm[4];
-          const ix = (1 - index.x) * overlay.width;
-          const iy = index.y * overlay.height;
-          const tx = (1 - thumb.x) * overlay.width;
-          const ty = thumb.y * overlay.height;
+        if (res.landmarks && res.landmarks.length > 0) {
+          for (let h = 0; h < res.landmarks.length; h++) {
+            const lm = res.landmarks[h];
+            const pts = lm.map((p: any) => ({
+              x: (1 - p.x) * overlay.width,
+              y: p.y * overlay.height,
+            }));
 
-          const dist = Math.hypot(ix - tx, iy - ty);
-          const pinchThreshold = Math.min(overlay.width, overlay.height) * 0.06;
-          const drawing =
-            modeRef.current === "index" ? true : dist < pinchThreshold;
-
-          // cursor
-          octx.beginPath();
-          octx.arc(ix, iy, drawing ? 14 : 10, 0, Math.PI * 2);
-          octx.fillStyle = drawing ? colorRef.current : "rgba(255,255,255,0.6)";
-          octx.fill();
-          octx.lineWidth = 3;
-          octx.strokeStyle = "rgba(0,0,0,0.4)";
-          octx.stroke();
-
-          if (drawing) {
-            const dpr = window.devicePixelRatio || 1;
-            dctx.lineCap = "round";
-            dctx.lineJoin = "round";
-            dctx.strokeStyle = colorRef.current;
-            dctx.lineWidth = sizeRef.current * dpr;
-            if (lastPt.current) {
-              dctx.beginPath();
-              dctx.moveTo(lastPt.current.x, lastPt.current.y);
-              dctx.lineTo(ix, iy);
-              dctx.stroke();
-            } else {
-              dctx.beginPath();
-              dctx.arc(ix, iy, (sizeRef.current * dpr) / 2, 0, Math.PI * 2);
-              dctx.fillStyle = colorRef.current;
-              dctx.fill();
+            // full hand skeleton
+            octx.lineWidth = 3;
+            octx.strokeStyle = "rgba(255,255,255,0.85)";
+            octx.shadowBlur = 6;
+            octx.shadowColor = "rgba(0,0,0,0.5)";
+            for (const [a, b] of HAND_CONNECTIONS) {
+              octx.beginPath();
+              octx.moveTo(pts[a].x, pts[a].y);
+              octx.lineTo(pts[b].x, pts[b].y);
+              octx.stroke();
             }
-            lastPt.current = { x: ix, y: iy };
-          } else {
-            lastPt.current = null;
+            octx.shadowBlur = 0;
+            // joints
+            for (let i = 0; i < pts.length; i++) {
+              octx.beginPath();
+              octx.arc(pts[i].x, pts[i].y, i === 0 ? 7 : 5, 0, Math.PI * 2);
+              octx.fillStyle = i === 0 ? "rgba(255,255,255,0.9)" : colorRef.current;
+              octx.fill();
+              octx.lineWidth = 2;
+              octx.strokeStyle = "rgba(0,0,0,0.5)";
+              octx.stroke();
+            }
+
+            // only the first hand draws
+            if (h === 0) {
+              const index = pts[8];
+              const thumb = pts[4];
+              const dist = Math.hypot(index.x - thumb.x, index.y - thumb.y);
+              const pinchThreshold = Math.min(overlay.width, overlay.height) * 0.06;
+              const drawing =
+                modeRef.current === "index" ? true : dist < pinchThreshold;
+
+              // cursor ring around fingertip
+              octx.beginPath();
+              octx.arc(index.x, index.y, drawing ? 16 : 12, 0, Math.PI * 2);
+              octx.lineWidth = 3;
+              octx.strokeStyle = drawing ? colorRef.current : "rgba(255,255,255,0.8)";
+              octx.stroke();
+
+              if (drawing) {
+                const dpr = window.devicePixelRatio || 1;
+                if (lastPt.current) {
+                  strokeSegment(dctx, lastPt.current, index);
+                } else {
+                  dctx.save();
+                  dctx.fillStyle = colorRef.current;
+                  dctx.beginPath();
+                  dctx.arc(index.x, index.y, (sizeRef.current * dpr) / 2, 0, Math.PI * 2);
+                  dctx.fill();
+                  dctx.restore();
+                }
+                lastPt.current = { x: index.x, y: index.y };
+              } else {
+                lastPt.current = null;
+              }
+            }
           }
         } else {
           lastPt.current = null;
@@ -231,29 +380,16 @@ function Index() {
     >
       <div className="min-h-screen w-full bg-gradient-to-b from-white/10 via-white/20 to-white/40 backdrop-blur-[1px]">
         <header className="flex items-center justify-between gap-3 px-4 py-4 sm:px-8 sm:py-6">
-          <h1 className="truncate text-xl font-black tracking-tight sm:text-3xl"
-              style={{ background: "var(--gradient-cute)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            ✦ Finger Light ✦
+          <h1 className="truncate text-xl font-black tracking-tight text-foreground sm:text-3xl">
+            Finger Light
           </h1>
           <div className="flex shrink-0 gap-2">
-            {!running ? (
-              <button
-                onClick={start}
-                className="rounded-full px-4 py-2 text-sm font-bold text-white shadow-[var(--shadow-soft)] active:scale-95"
-                style={{ background: "var(--gradient-cute)" }}
-              >
-                ▶ Start
-              </button>
-            ) : (
-              <>
-                <button onClick={clear} className="rounded-full bg-white/80 px-3 py-2 text-sm font-semibold shadow-md active:scale-95">
-                  Clear
-                </button>
-                <button onClick={save} className="rounded-full bg-white/80 px-3 py-2 text-sm font-semibold shadow-md active:scale-95">
-                  Save
-                </button>
-              </>
-            )}
+            <button onClick={clear} className="rounded-full bg-white/80 px-3 py-2 text-sm font-semibold shadow-md active:scale-95">
+              Clear
+            </button>
+            <button onClick={save} className="rounded-full bg-white/80 px-3 py-2 text-sm font-semibold shadow-md active:scale-95">
+              Save
+            </button>
           </div>
         </header>
 
@@ -271,7 +407,7 @@ function Index() {
             />
             <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
             <canvas ref={overlayRef} className="pointer-events-none absolute inset-0 h-full w-full" />
-            {!running && (
+            {!running && status && (
               <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
                 <p className="rounded-2xl bg-white/85 px-5 py-3 text-sm font-medium text-foreground shadow-lg">
                   {status}
@@ -280,7 +416,7 @@ function Index() {
             )}
             {running && (
               <div className="absolute left-3 top-3 rounded-full bg-black/50 px-3 py-1 text-xs font-medium text-white">
-                {drawMode === "pinch" ? "pinch thumb + index to draw" : "index finger draws"}
+                {drawMode === "pinch" ? "pinch thumb + index to draw" : "index finger draws"} · {brush}
               </div>
             )}
           </div>
@@ -298,6 +434,23 @@ function Index() {
                   }`}
                   style={{ background: s.color }}
                 />
+              ))}
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="self-center text-xs font-bold uppercase tracking-wider text-foreground/70">Brush</span>
+              {brushes.map((b) => (
+                <button
+                  key={b}
+                  onClick={() => setBrush(b)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold capitalize transition active:scale-95 ${
+                    brush === b
+                      ? "bg-foreground text-background shadow-md"
+                      : "bg-white/80 text-foreground"
+                  }`}
+                >
+                  {b}
+                </button>
               ))}
             </div>
 
@@ -320,18 +473,13 @@ function Index() {
                 <button
                   key={m}
                   onClick={() => setDrawMode(m)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition active:scale-95 ${
+                  className={`rounded-full px-4 py-2 text-sm font-semibold capitalize transition active:scale-95 ${
                     drawMode === m
-                      ? "text-white shadow-md"
+                      ? "bg-foreground text-background shadow-md"
                       : "bg-white/80 text-foreground"
                   }`}
-                  style={
-                    drawMode === m
-                      ? { background: "var(--gradient-cute)" }
-                      : undefined
-                  }
                 >
-                  {m === "pinch" ? "👌 Pinch" : "☝️ Index"}
+                  {m}
                 </button>
               ))}
             </div>
