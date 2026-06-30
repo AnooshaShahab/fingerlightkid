@@ -37,6 +37,22 @@ const swatches = [
 type Brush = "pen" | "marker" | "watercolor" | "airbrush" | "neon" | "sparkle";
 const brushes: Brush[] = ["pen", "marker", "watercolor", "airbrush", "neon", "sparkle"];
 
+interface Prompt {
+  text: string;
+  color: string;
+  brush: Brush;
+  size: number;
+}
+
+const drawingPrompts: Prompt[] = [
+  { text: "Draw a rainbow", color: swatches[0].color, brush: "watercolor", size: 12 },
+  { text: "Make a smiley", color: swatches[13].color, brush: "marker", size: 10 },
+  { text: "Draw a tree", color: swatches[6].color, brush: "pen", size: 8 },
+  { text: "Draw a sun", color: swatches[9].color, brush: "neon", size: 14 },
+  { text: "Draw your name", color: swatches[2].color, brush: "sparkle", size: 10 },
+  { text: "Draw a house", color: swatches[3].color, brush: "pen", size: 8 },
+];
+
 // MediaPipe hand connections (pairs of landmark indices)
 const HAND_CONNECTIONS: [number, number][] = [
   [0, 1], [1, 2], [2, 3], [3, 4],
@@ -66,6 +82,7 @@ function Index() {
   const [sensitivity, setSensitivity] = useState(50);
   // 0 raw (jittery) → 100 very smooth (slight lag)
   const [smoothing, setSmoothing] = useState(55);
+  const [activePrompt, setActivePrompt] = useState<string | null>(null);
 
   const colorRef = useRef(color);
   const sizeRef = useRef(size);
@@ -82,6 +99,7 @@ function Index() {
 
   const smoothedPt = useRef<{ x: number; y: number } | null>(null);
   const pinchHoldRef = useRef(false);
+  const promptTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resizeCanvases = useCallback(() => {
     const wrap = wrapRef.current;
@@ -406,6 +424,7 @@ function Index() {
   useEffect(() => {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (promptTimeoutRef.current) clearTimeout(promptTimeoutRef.current);
       const v = videoRef.current;
       if (v && v.srcObject) {
         (v.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
@@ -413,14 +432,6 @@ function Index() {
     };
   }, []);
 
-  const brushEmoji: Record<Brush, string> = {
-    pen: "✏️",
-    marker: "🖍️",
-    watercolor: "🎨",
-    airbrush: "💨",
-    neon: "💡",
-    sparkle: "✨",
-  };
 
   return (
     <div
@@ -435,22 +446,20 @@ function Index() {
 
         <header className="relative flex items-center justify-between gap-3 px-4 py-4 sm:px-8 sm:py-6">
           <h1 className="display flex items-center gap-2 truncate text-2xl text-foreground drop-shadow-[2px_2px_0_white] sm:text-4xl">
-            <span className="inline-block animate-wiggle">🖐️</span>
-            <span>Finger Light</span>
-            <span className="inline-block animate-bounce-soft">⭐</span>
+            Finger Light
           </h1>
           <div className="flex shrink-0 gap-2">
             <button
               onClick={clear}
               className="rounded-full border-4 border-foreground bg-[color:var(--butter)] px-4 py-2 text-sm font-bold text-foreground shadow-[3px_3px_0_0_var(--foreground)] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
             >
-              🧽 Clear
+              Clear
             </button>
             <button
               onClick={save}
               className="rounded-full border-4 border-foreground bg-[color:var(--mint)] px-4 py-2 text-sm font-bold text-foreground shadow-[3px_3px_0_0_var(--foreground)] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
             >
-              💾 Save
+              Save
             </button>
           </div>
         </header>
@@ -472,20 +481,48 @@ function Index() {
             {!running && status && (
               <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
                 <p className="rounded-3xl border-4 border-foreground bg-white px-6 py-4 text-base font-bold text-foreground shadow-[4px_4px_0_0_var(--foreground)]">
-                  {status} 📸
+                  {status}
                 </p>
               </div>
             )}
             {running && (
               <div className="absolute left-3 top-3 rounded-full border-2 border-white bg-[color:var(--hotpink)] px-3 py-1 text-xs font-bold text-white shadow-md">
-                {drawMode === "pinch" ? "👌 pinch to draw" : "👆 fingertip draws"} · {brushEmoji[brush]} {brush}
+                {drawMode === "pinch" ? "pinch to draw" : "fingertip draws"} · {brush}
+              </div>
+            )}
+            {activePrompt && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border-4 border-foreground bg-[color:var(--hotpink)] px-6 py-2 text-sm font-bold text-white shadow-[3px_3px_0_0_var(--foreground)]">
+                {activePrompt}
               </div>
             )}
           </div>
 
+          <section className="mt-5 rounded-[2rem] border-[5px] border-foreground bg-white/90 p-4 shadow-[6px_6px_0_0_var(--foreground)] backdrop-blur-md sm:p-6">
+            <p className="display mb-3 text-sm text-foreground">What should you draw?</p>
+            <div className="flex flex-wrap gap-2">
+              {drawingPrompts.map((p) => (
+                <button
+                  key={p.text}
+                  onClick={() => {
+                    clear();
+                    setColor(p.color);
+                    setBrush(p.brush);
+                    setSize(p.size);
+                    setActivePrompt(p.text);
+                    if (promptTimeoutRef.current) clearTimeout(promptTimeoutRef.current);
+                    promptTimeoutRef.current = setTimeout(() => setActivePrompt(null), 4000);
+                  }}
+                  className="rounded-full border-[3px] border-foreground bg-[color:var(--butter)] px-4 py-2 text-sm font-bold text-foreground shadow-[3px_3px_0_0_var(--foreground)] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none hover:-translate-y-0.5"
+                >
+                  {p.text}
+                </button>
+              ))}
+            </div>
+          </section>
+
           <section className="mt-6 rounded-[2rem] border-[5px] border-foreground bg-white/90 p-4 shadow-[6px_6px_0_0_var(--foreground)] backdrop-blur-md sm:p-6">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="display text-sm text-foreground">🎨 Colors</span>
+              <span className="display text-sm text-foreground">Colors</span>
               {swatches.map((s) => (
                 <button
                   key={s.name}
@@ -502,7 +539,7 @@ function Index() {
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2">
-              <span className="display self-center text-sm text-foreground">🖌️ Brush</span>
+              <span className="display self-center text-sm text-foreground">Brush</span>
               {brushes.map((b) => (
                 <button
                   key={b}
@@ -513,13 +550,13 @@ function Index() {
                       : "bg-[color:var(--butter)] text-foreground hover:-translate-y-0.5"
                   }`}
                 >
-                  {brushEmoji[b]} {b}
+                  {b}
                 </button>
               ))}
             </div>
 
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              <span className="display text-sm text-foreground">📏 Size</span>
+              <span className="display text-sm text-foreground">Size</span>
               <input
                 type="range"
                 min={2}
@@ -533,7 +570,7 @@ function Index() {
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <span className="display text-sm text-foreground" title="How easily a pinch is detected.">
-                🤏 Pinch
+                Pinch
               </span>
               <input
                 type="range"
@@ -549,7 +586,7 @@ function Index() {
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <span className="display text-sm text-foreground" title="Smooths shaky tracking.">
-                🌊 Smooth
+                Smooth
               </span>
               <input
                 type="range"
@@ -563,7 +600,7 @@ function Index() {
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2">
-              <span className="display self-center text-sm text-foreground">🎮 Mode</span>
+              <span className="display self-center text-sm text-foreground">Mode</span>
               {(["pinch", "index"] as const).map((m) => (
                 <button
                   key={m}
@@ -574,14 +611,14 @@ function Index() {
                       : "bg-[color:var(--pink)] text-foreground hover:-translate-y-0.5"
                   }`}
                 >
-                  {m === "pinch" ? "🤏" : "👆"} {m}
+                  {m}
                 </button>
               ))}
             </div>
           </section>
 
           <p className="display mt-6 text-center text-sm text-foreground/80">
-            made for tiny artists ✨🌈🦄
+            made for tiny artists
           </p>
         </main>
       </div>
