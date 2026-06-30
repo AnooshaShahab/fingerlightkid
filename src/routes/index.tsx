@@ -37,6 +37,22 @@ const swatches = [
 type Brush = "pen" | "marker" | "watercolor" | "airbrush" | "neon" | "sparkle";
 const brushes: Brush[] = ["pen", "marker", "watercolor", "airbrush", "neon", "sparkle"];
 
+interface Prompt {
+  text: string;
+  color: string;
+  brush: Brush;
+  size: number;
+}
+
+const drawingPrompts: Prompt[] = [
+  { text: "Draw a rainbow", color: swatches[0].color, brush: "watercolor", size: 12 },
+  { text: "Make a smiley", color: swatches[13].color, brush: "marker", size: 10 },
+  { text: "Draw a tree", color: swatches[6].color, brush: "pen", size: 8 },
+  { text: "Draw a sun", color: swatches[9].color, brush: "neon", size: 14 },
+  { text: "Draw your name", color: swatches[2].color, brush: "sparkle", size: 10 },
+  { text: "Draw a house", color: swatches[3].color, brush: "pen", size: 8 },
+];
+
 // MediaPipe hand connections (pairs of landmark indices)
 const HAND_CONNECTIONS: [number, number][] = [
   [0, 1], [1, 2], [2, 3], [3, 4],
