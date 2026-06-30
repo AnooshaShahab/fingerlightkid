@@ -293,11 +293,11 @@ function Index() {
               y: p.y * overlay.height,
             }));
 
-            // full hand skeleton
-            octx.lineWidth = 3;
-            octx.strokeStyle = "rgba(255,255,255,0.85)";
-            octx.shadowBlur = 6;
-            octx.shadowColor = "rgba(0,0,0,0.5)";
+            // full hand skeleton — thin white lines, small white joints, red fingertips
+            octx.lineWidth = 2;
+            octx.strokeStyle = "rgba(255,255,255,0.9)";
+            octx.shadowBlur = 4;
+            octx.shadowColor = "rgba(0,0,0,0.6)";
             for (const [a, b] of HAND_CONNECTIONS) {
               octx.beginPath();
               octx.moveTo(pts[a].x, pts[a].y);
@@ -305,15 +305,13 @@ function Index() {
               octx.stroke();
             }
             octx.shadowBlur = 0;
-            // joints
+            const fingertips = new Set([4, 8, 12, 16, 20]);
             for (let i = 0; i < pts.length; i++) {
+              const isTip = fingertips.has(i);
               octx.beginPath();
-              octx.arc(pts[i].x, pts[i].y, i === 0 ? 7 : 5, 0, Math.PI * 2);
-              octx.fillStyle = i === 0 ? "rgba(255,255,255,0.9)" : colorRef.current;
+              octx.arc(pts[i].x, pts[i].y, isTip ? 5 : 3, 0, Math.PI * 2);
+              octx.fillStyle = isTip ? "#ff2d4a" : "rgba(255,255,255,0.95)";
               octx.fill();
-              octx.lineWidth = 2;
-              octx.strokeStyle = "rgba(0,0,0,0.5)";
-              octx.stroke();
             }
 
             // only the first hand draws
