@@ -82,6 +82,7 @@ function Index() {
   const [sensitivity, setSensitivity] = useState(50);
   // 0 raw (jittery) → 100 very smooth (slight lag)
   const [smoothing, setSmoothing] = useState(55);
+  const [activePrompt, setActivePrompt] = useState<string | null>(null);
 
   const colorRef = useRef(color);
   const sizeRef = useRef(size);
@@ -98,6 +99,7 @@ function Index() {
 
   const smoothedPt = useRef<{ x: number; y: number } | null>(null);
   const pinchHoldRef = useRef(false);
+  const promptTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resizeCanvases = useCallback(() => {
     const wrap = wrapRef.current;
@@ -422,6 +424,7 @@ function Index() {
   useEffect(() => {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (promptTimeoutRef.current) clearTimeout(promptTimeoutRef.current);
       const v = videoRef.current;
       if (v && v.srcObject) {
         (v.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
@@ -429,14 +432,6 @@ function Index() {
     };
   }, []);
 
-  const brushEmoji: Record<Brush, string> = {
-    pen: "✏️",
-    marker: "🖍️",
-    watercolor: "🎨",
-    airbrush: "💨",
-    neon: "💡",
-    sparkle: "✨",
-  };
 
   return (
     <div
