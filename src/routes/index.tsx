@@ -320,14 +320,44 @@ function Index() {
             if (h === 0) {
               const index = pts[8];
               const thumb = pts[4];
-              const dist = Math.hypot(index.x - thumb.x, index.y - thumb.y);
-              const pinchThreshold = Math.min(overlay.width, overlay.height) * 0.06;
-              const drawing =
-                modeRef.current === "index" ? true : dist < pinchThreshold;
+              // normalize pinch distance by hand size (wrist→index-MCP)
+              const handSize =
+                Math.hypot(pts[0].x - pts[5].x, pts[0].y - pts[5].y) || 1;
+              const pinchRatio = Math.hypot(index.x - thumb.x, index.y - thumb.y) / handSize;
+              // sensitivity 0..100 → threshold 0.15..0.95 (loose = bigger)
+              const sens = sensRef.current / 100;
+              const onThresh = 0.15 + sens * 0.6;        // start drawing
+              const offThresh = onThresh + 0.12;          // stop drawing (hysteresis)
 
-              // cursor ring around fingertip
+              let drawing: boolean;
+              if (modeRef.current === "index") {
+                drawing = true;
+              } else {
+                if (pinchHoldRef.current) {
+                  drawing = pinchRatio < offThresh;
+                } else {
+                  drawing = pinchRatio < onThresh;
+                }
+                pinchHoldRef.current = drawing;
+              }
+
+              // smoothing (EMA): 0 → 1 (raw), 100 → ~0.12 (very smooth)
+              const alpha = 1 - (smoothRef.current / 100) * 0.88;
+              // anchor draw point between thumb & index in pinch mode for accuracy
+              const target =
+                modeRef.current === "pinch"
+                  ? { x: (index.x + thumb.x) / 2, y: (index.y + thumb.y) / 2 }
+                  : index;
+              if (!smoothedPt.current) smoothedPt.current = { ...target };
+              smoothedPt.current = {
+                x: smoothedPt.current.x + (target.x - smoothedPt.current.x) * alpha,
+                y: smoothedPt.current.y + (target.y - smoothedPt.current.y) * alpha,
+              };
+              const draw = smoothedPt.current;
+
+              // cursor ring
               octx.beginPath();
-              octx.arc(index.x, index.y, drawing ? 16 : 12, 0, Math.PI * 2);
+              octx.arc(draw.x, draw.y, drawing ? 16 : 12, 0, Math.PI * 2);
               octx.lineWidth = 3;
               octx.strokeStyle = drawing ? colorRef.current : "rgba(255,255,255,0.8)";
               octx.stroke();
@@ -335,16 +365,16 @@ function Index() {
               if (drawing) {
                 const dpr = window.devicePixelRatio || 1;
                 if (lastPt.current) {
-                  strokeSegment(dctx, lastPt.current, index);
+                  strokeSegment(dctx, lastPt.current, draw);
                 } else {
                   dctx.save();
                   dctx.fillStyle = colorRef.current;
                   dctx.beginPath();
-                  dctx.arc(index.x, index.y, (sizeRef.current * dpr) / 2, 0, Math.PI * 2);
+                  dctx.arc(draw.x, draw.y, (sizeRef.current * dpr) / 2, 0, Math.PI * 2);
                   dctx.fill();
                   dctx.restore();
                 }
-                lastPt.current = { x: index.x, y: index.y };
+                lastPt.current = { x: draw.x, y: draw.y };
               } else {
                 lastPt.current = null;
               }
