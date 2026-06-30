@@ -348,12 +348,11 @@ function Index() {
                 modeRef.current === "pinch"
                   ? { x: (index.x + thumb.x) / 2, y: (index.y + thumb.y) / 2 }
                   : index;
-              if (!smoothedPt.current) smoothedPt.current = { ...target };
-              smoothedPt.current = {
-                x: smoothedPt.current.x + (target.x - smoothedPt.current.x) * alpha,
-                y: smoothedPt.current.y + (target.y - smoothedPt.current.y) * alpha,
-              };
-              const draw = smoothedPt.current;
+              if (!smoothedPt.current) smoothedPt.current = { x: target.x, y: target.y };
+              const sp = smoothedPt.current;
+              sp.x = sp.x + (target.x - sp.x) * alpha;
+              sp.y = sp.y + (target.y - sp.y) * alpha;
+              const draw = { x: sp.x, y: sp.y };
 
               // cursor ring
               octx.beginPath();
