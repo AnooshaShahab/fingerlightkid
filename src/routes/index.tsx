@@ -381,6 +381,8 @@ function Index() {
           }
         } else {
           lastPt.current = null;
+          smoothedPt.current = null;
+          pinchHoldRef.current = false;
         }
       }
       rafRef.current = requestAnimationFrame(tick);
