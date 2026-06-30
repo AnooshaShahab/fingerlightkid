@@ -62,15 +62,26 @@ function Index() {
   const [running, setRunning] = useState(false);
   const [drawMode, setDrawMode] = useState<"pinch" | "index">("pinch");
   const [brush, setBrush] = useState<Brush>("pen");
+  // 0 strict (fingers must nearly touch) → 100 loose (easy trigger)
+  const [sensitivity, setSensitivity] = useState(50);
+  // 0 raw (jittery) → 100 very smooth (slight lag)
+  const [smoothing, setSmoothing] = useState(55);
 
   const colorRef = useRef(color);
   const sizeRef = useRef(size);
   const modeRef = useRef(drawMode);
   const brushRef = useRef(brush);
+  const sensRef = useRef(sensitivity);
+  const smoothRef = useRef(smoothing);
   useEffect(() => { colorRef.current = color; }, [color]);
   useEffect(() => { sizeRef.current = size; }, [size]);
   useEffect(() => { modeRef.current = drawMode; }, [drawMode]);
   useEffect(() => { brushRef.current = brush; }, [brush]);
+  useEffect(() => { sensRef.current = sensitivity; }, [sensitivity]);
+  useEffect(() => { smoothRef.current = smoothing; }, [smoothing]);
+
+  const smoothedPt = useRef<{ x: number; y: number } | null>(null);
+  const pinchHoldRef = useRef(false);
 
   const resizeCanvases = useCallback(() => {
     const wrap = wrapRef.current;
@@ -309,14 +320,43 @@ function Index() {
             if (h === 0) {
               const index = pts[8];
               const thumb = pts[4];
-              const dist = Math.hypot(index.x - thumb.x, index.y - thumb.y);
-              const pinchThreshold = Math.min(overlay.width, overlay.height) * 0.06;
-              const drawing =
-                modeRef.current === "index" ? true : dist < pinchThreshold;
+              // normalize pinch distance by hand size (wrist→index-MCP)
+              const handSize =
+                Math.hypot(pts[0].x - pts[5].x, pts[0].y - pts[5].y) || 1;
+              const pinchRatio = Math.hypot(index.x - thumb.x, index.y - thumb.y) / handSize;
+              // sensitivity 0..100 → threshold 0.15..0.95 (loose = bigger)
+              const sens = sensRef.current / 100;
+              const onThresh = 0.15 + sens * 0.6;        // start drawing
+              const offThresh = onThresh + 0.12;          // stop drawing (hysteresis)
 
-              // cursor ring around fingertip
+              let drawing: boolean;
+              if (modeRef.current === "index") {
+                drawing = true;
+              } else {
+                if (pinchHoldRef.current) {
+                  drawing = pinchRatio < offThresh;
+                } else {
+                  drawing = pinchRatio < onThresh;
+                }
+                pinchHoldRef.current = drawing;
+              }
+
+              // smoothing (EMA): 0 → 1 (raw), 100 → ~0.12 (very smooth)
+              const alpha = 1 - (smoothRef.current / 100) * 0.88;
+              // anchor draw point between thumb & index in pinch mode for accuracy
+              const target =
+                modeRef.current === "pinch"
+                  ? { x: (index.x + thumb.x) / 2, y: (index.y + thumb.y) / 2 }
+                  : index;
+              if (!smoothedPt.current) smoothedPt.current = { x: target.x, y: target.y };
+              const sp = smoothedPt.current;
+              sp.x = sp.x + (target.x - sp.x) * alpha;
+              sp.y = sp.y + (target.y - sp.y) * alpha;
+              const draw = { x: sp.x, y: sp.y };
+
+              // cursor ring
               octx.beginPath();
-              octx.arc(index.x, index.y, drawing ? 16 : 12, 0, Math.PI * 2);
+              octx.arc(draw.x, draw.y, drawing ? 16 : 12, 0, Math.PI * 2);
               octx.lineWidth = 3;
               octx.strokeStyle = drawing ? colorRef.current : "rgba(255,255,255,0.8)";
               octx.stroke();
@@ -324,16 +364,16 @@ function Index() {
               if (drawing) {
                 const dpr = window.devicePixelRatio || 1;
                 if (lastPt.current) {
-                  strokeSegment(dctx, lastPt.current, index);
+                  strokeSegment(dctx, lastPt.current, draw);
                 } else {
                   dctx.save();
                   dctx.fillStyle = colorRef.current;
                   dctx.beginPath();
-                  dctx.arc(index.x, index.y, (sizeRef.current * dpr) / 2, 0, Math.PI * 2);
+                  dctx.arc(draw.x, draw.y, (sizeRef.current * dpr) / 2, 0, Math.PI * 2);
                   dctx.fill();
                   dctx.restore();
                 }
-                lastPt.current = { x: index.x, y: index.y };
+                lastPt.current = { x: draw.x, y: draw.y };
               } else {
                 lastPt.current = null;
               }
@@ -341,6 +381,8 @@ function Index() {
           }
         } else {
           lastPt.current = null;
+          smoothedPt.current = null;
+          pinchHoldRef.current = false;
         }
       }
       rafRef.current = requestAnimationFrame(tick);
@@ -465,6 +507,37 @@ function Index() {
                 className="flex-1 min-w-[140px] accent-[oklch(0.62_0.27_330)]"
               />
               <span className="w-8 text-center text-sm font-bold">{size}</span>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-foreground/70" title="How easily a pinch is detected. Lower = fingers must touch; higher = looser.">
+                Pinch
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={sensitivity}
+                onChange={(e) => setSensitivity(parseInt(e.target.value))}
+                disabled={drawMode === "index"}
+                className="flex-1 min-w-[140px] accent-[oklch(0.62_0.27_330)] disabled:opacity-40"
+              />
+              <span className="w-8 text-center text-sm font-bold">{sensitivity}</span>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-foreground/70" title="Smooths shaky tracking. Higher = steadier lines, slightly more lag.">
+                Smooth
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={smoothing}
+                onChange={(e) => setSmoothing(parseInt(e.target.value))}
+                className="flex-1 min-w-[140px] accent-[oklch(0.62_0.27_330)]"
+              />
+              <span className="w-8 text-center text-sm font-bold">{smoothing}</span>
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
