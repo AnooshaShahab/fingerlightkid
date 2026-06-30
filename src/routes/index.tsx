@@ -45,9 +45,11 @@ function Index() {
 
   const [color, setColor] = useState(swatches[0].color);
   const [size, setSize] = useState(8);
-  const [status, setStatus] = useState("Tap start to enable webcam");
+  const [status, setStatus] = useState("Allow camera to start drawing");
   const [running, setRunning] = useState(false);
   const [drawMode, setDrawMode] = useState<"pinch" | "index">("pinch");
+  const [brush, setBrush] = useState<"pen" | "marker" | "watercolor" | "airbrush" | "neon" | "sparkle">("pen");
+
 
   // refs that hold latest values for the rAF loop
   const colorRef = useRef(color);
