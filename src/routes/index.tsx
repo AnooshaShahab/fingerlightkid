@@ -413,30 +413,52 @@ function Index() {
     };
   }, []);
 
+  const brushEmoji: Record<Brush, string> = {
+    pen: "✏️",
+    marker: "🖍️",
+    watercolor: "🎨",
+    airbrush: "💨",
+    neon: "💡",
+    sparkle: "✨",
+  };
+
   return (
     <div
       className="min-h-screen w-full bg-cover bg-center bg-fixed"
       style={{ backgroundImage: `url(${estrellas.url})` }}
     >
-      <div className="min-h-screen w-full bg-gradient-to-b from-white/10 via-white/20 to-white/40 backdrop-blur-[1px]">
-        <header className="flex items-center justify-between gap-3 px-4 py-4 sm:px-8 sm:py-6">
-          <h1 className="truncate text-xl font-black tracking-tight text-foreground sm:text-3xl">
-            Finger Light
+      <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-b from-[color:var(--pink)]/40 via-[color:var(--lavender)]/30 to-[color:var(--sky)]/40 backdrop-blur-[1px]">
+        {/* floating candy blobs */}
+        <div className="pointer-events-none absolute -left-16 -top-20 h-72 w-72 rounded-full bg-[color:var(--hotpink)]/40 blur-3xl animate-float-blob" />
+        <div className="pointer-events-none absolute right-[-60px] top-40 h-80 w-80 rounded-full bg-[color:var(--lime)]/40 blur-3xl animate-float-blob" style={{ animationDelay: "2s" }} />
+        <div className="pointer-events-none absolute bottom-10 left-1/3 h-72 w-72 rounded-full bg-[color:var(--butter)]/50 blur-3xl animate-float-blob" style={{ animationDelay: "4s" }} />
+
+        <header className="relative flex items-center justify-between gap-3 px-4 py-4 sm:px-8 sm:py-6">
+          <h1 className="display flex items-center gap-2 truncate text-2xl text-foreground drop-shadow-[2px_2px_0_white] sm:text-4xl">
+            <span className="inline-block animate-wiggle">🖐️</span>
+            <span>Finger Light</span>
+            <span className="inline-block animate-bounce-soft">⭐</span>
           </h1>
           <div className="flex shrink-0 gap-2">
-            <button onClick={clear} className="rounded-full bg-white/80 px-3 py-2 text-sm font-semibold shadow-md active:scale-95">
-              Clear
+            <button
+              onClick={clear}
+              className="rounded-full border-4 border-foreground bg-[color:var(--butter)] px-4 py-2 text-sm font-bold text-foreground shadow-[3px_3px_0_0_var(--foreground)] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+            >
+              🧽 Clear
             </button>
-            <button onClick={save} className="rounded-full bg-white/80 px-3 py-2 text-sm font-semibold shadow-md active:scale-95">
-              Save
+            <button
+              onClick={save}
+              className="rounded-full border-4 border-foreground bg-[color:var(--mint)] px-4 py-2 text-sm font-bold text-foreground shadow-[3px_3px_0_0_var(--foreground)] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+            >
+              💾 Save
             </button>
           </div>
         </header>
 
-        <main className="mx-auto max-w-5xl px-3 pb-24 sm:px-6">
+        <main className="relative mx-auto max-w-5xl px-3 pb-24 sm:px-6">
           <div
             ref={wrapRef}
-            className="relative aspect-[3/4] w-full overflow-hidden rounded-3xl border-2 border-white/70 bg-black/30 shadow-[var(--shadow-soft)] sm:aspect-video"
+            className="relative aspect-[3/4] w-full overflow-hidden rounded-[2.5rem] border-[6px] border-foreground bg-black/30 shadow-[8px_8px_0_0_var(--foreground)] sm:aspect-video"
           >
             <video
               ref={videoRef}
@@ -449,67 +471,69 @@ function Index() {
             <canvas ref={overlayRef} className="pointer-events-none absolute inset-0 h-full w-full" />
             {!running && status && (
               <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
-                <p className="rounded-2xl bg-white/85 px-5 py-3 text-sm font-medium text-foreground shadow-lg">
-                  {status}
+                <p className="rounded-3xl border-4 border-foreground bg-white px-6 py-4 text-base font-bold text-foreground shadow-[4px_4px_0_0_var(--foreground)]">
+                  {status} 📸
                 </p>
               </div>
             )}
             {running && (
-              <div className="absolute left-3 top-3 rounded-full bg-black/50 px-3 py-1 text-xs font-medium text-white">
-                {drawMode === "pinch" ? "pinch thumb + index to draw" : "index finger draws"} · {brush}
+              <div className="absolute left-3 top-3 rounded-full border-2 border-white bg-[color:var(--hotpink)] px-3 py-1 text-xs font-bold text-white shadow-md">
+                {drawMode === "pinch" ? "👌 pinch to draw" : "👆 fingertip draws"} · {brushEmoji[brush]} {brush}
               </div>
             )}
           </div>
 
-          <section className="mt-5 rounded-3xl border-2 border-white/70 bg-white/70 p-4 shadow-[var(--shadow-soft)] backdrop-blur-md sm:p-6">
+          <section className="mt-6 rounded-[2rem] border-[5px] border-foreground bg-white/90 p-4 shadow-[6px_6px_0_0_var(--foreground)] backdrop-blur-md sm:p-6">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-foreground/70">Color</span>
+              <span className="display text-sm text-foreground">🎨 Colors</span>
               {swatches.map((s) => (
                 <button
                   key={s.name}
                   aria-label={s.name}
                   onClick={() => setColor(s.color)}
-                  className={`h-9 w-9 rounded-full border-2 shadow-md transition-transform active:scale-90 ${
-                    color === s.color ? "border-foreground scale-110" : "border-white"
+                  className={`h-10 w-10 rounded-full border-[3px] transition-transform active:scale-90 ${
+                    color === s.color
+                      ? "border-foreground scale-125 shadow-[2px_2px_0_0_var(--foreground)]"
+                      : "border-white shadow-md hover:scale-110"
                   }`}
                   style={{ background: s.color }}
                 />
               ))}
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              <span className="self-center text-xs font-bold uppercase tracking-wider text-foreground/70">Brush</span>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <span className="display self-center text-sm text-foreground">🖌️ Brush</span>
               {brushes.map((b) => (
                 <button
                   key={b}
                   onClick={() => setBrush(b)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold capitalize transition active:scale-95 ${
+                  className={`rounded-full border-[3px] border-foreground px-4 py-2 text-sm font-bold capitalize transition active:scale-95 ${
                     brush === b
-                      ? "bg-foreground text-background shadow-md"
-                      : "bg-white/80 text-foreground"
+                      ? "bg-[color:var(--hotpink)] text-white shadow-[3px_3px_0_0_var(--foreground)]"
+                      : "bg-[color:var(--butter)] text-foreground hover:-translate-y-0.5"
                   }`}
                 >
-                  {b}
+                  {brushEmoji[b]} {b}
                 </button>
               ))}
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-foreground/70">Size</span>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <span className="display text-sm text-foreground">📏 Size</span>
               <input
                 type="range"
                 min={2}
                 max={40}
                 value={size}
                 onChange={(e) => setSize(parseInt(e.target.value))}
-                className="flex-1 min-w-[140px] accent-[oklch(0.62_0.27_330)]"
+                className="flex-1 min-w-[140px] accent-[color:var(--hotpink)]"
               />
-              <span className="w-8 text-center text-sm font-bold">{size}</span>
+              <span className="display w-10 rounded-full border-2 border-foreground bg-[color:var(--lime)] text-center text-sm">{size}</span>
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-foreground/70" title="How easily a pinch is detected. Lower = fingers must touch; higher = looser.">
-                Pinch
+              <span className="display text-sm text-foreground" title="How easily a pinch is detected.">
+                🤏 Pinch
               </span>
               <input
                 type="range"
@@ -518,14 +542,14 @@ function Index() {
                 value={sensitivity}
                 onChange={(e) => setSensitivity(parseInt(e.target.value))}
                 disabled={drawMode === "index"}
-                className="flex-1 min-w-[140px] accent-[oklch(0.62_0.27_330)] disabled:opacity-40"
+                className="flex-1 min-w-[140px] accent-[color:var(--magenta)] disabled:opacity-40"
               />
-              <span className="w-8 text-center text-sm font-bold">{sensitivity}</span>
+              <span className="display w-10 rounded-full border-2 border-foreground bg-[color:var(--sky)] text-center text-sm">{sensitivity}</span>
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-foreground/70" title="Smooths shaky tracking. Higher = steadier lines, slightly more lag.">
-                Smooth
+              <span className="display text-sm text-foreground" title="Smooths shaky tracking.">
+                🌊 Smooth
               </span>
               <input
                 type="range"
@@ -533,28 +557,32 @@ function Index() {
                 max={100}
                 value={smoothing}
                 onChange={(e) => setSmoothing(parseInt(e.target.value))}
-                className="flex-1 min-w-[140px] accent-[oklch(0.62_0.27_330)]"
+                className="flex-1 min-w-[140px] accent-[color:var(--teal)]"
               />
-              <span className="w-8 text-center text-sm font-bold">{smoothing}</span>
+              <span className="display w-10 rounded-full border-2 border-foreground bg-[color:var(--mint)] text-center text-sm">{smoothing}</span>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              <span className="self-center text-xs font-bold uppercase tracking-wider text-foreground/70">Mode</span>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <span className="display self-center text-sm text-foreground">🎮 Mode</span>
               {(["pinch", "index"] as const).map((m) => (
                 <button
                   key={m}
                   onClick={() => setDrawMode(m)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold capitalize transition active:scale-95 ${
+                  className={`rounded-full border-[3px] border-foreground px-4 py-2 text-sm font-bold capitalize transition active:scale-95 ${
                     drawMode === m
-                      ? "bg-foreground text-background shadow-md"
-                      : "bg-white/80 text-foreground"
+                      ? "bg-[color:var(--purple)] text-white shadow-[3px_3px_0_0_var(--foreground)]"
+                      : "bg-[color:var(--pink)] text-foreground hover:-translate-y-0.5"
                   }`}
                 >
-                  {m}
+                  {m === "pinch" ? "🤏" : "👆"} {m}
                 </button>
               ))}
             </div>
           </section>
+
+          <p className="display mt-6 text-center text-sm text-foreground/80">
+            made for tiny artists ✨🌈🦄
+          </p>
         </main>
       </div>
     </div>
