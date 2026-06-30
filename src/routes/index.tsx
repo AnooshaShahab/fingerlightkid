@@ -62,15 +62,26 @@ function Index() {
   const [running, setRunning] = useState(false);
   const [drawMode, setDrawMode] = useState<"pinch" | "index">("pinch");
   const [brush, setBrush] = useState<Brush>("pen");
+  // 0 strict (fingers must nearly touch) → 100 loose (easy trigger)
+  const [sensitivity, setSensitivity] = useState(50);
+  // 0 raw (jittery) → 100 very smooth (slight lag)
+  const [smoothing, setSmoothing] = useState(55);
 
   const colorRef = useRef(color);
   const sizeRef = useRef(size);
   const modeRef = useRef(drawMode);
   const brushRef = useRef(brush);
+  const sensRef = useRef(sensitivity);
+  const smoothRef = useRef(smoothing);
   useEffect(() => { colorRef.current = color; }, [color]);
   useEffect(() => { sizeRef.current = size; }, [size]);
   useEffect(() => { modeRef.current = drawMode; }, [drawMode]);
   useEffect(() => { brushRef.current = brush; }, [brush]);
+  useEffect(() => { sensRef.current = sensitivity; }, [sensitivity]);
+  useEffect(() => { smoothRef.current = smoothing; }, [smoothing]);
+
+  const smoothedPt = useRef<{ x: number; y: number } | null>(null);
+  const pinchHoldRef = useRef(false);
 
   const resizeCanvases = useCallback(() => {
     const wrap = wrapRef.current;
