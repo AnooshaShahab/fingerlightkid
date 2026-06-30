@@ -119,5 +119,26 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: "Fredoka", "Comic Sans MS", system-ui, sans-serif;
+  }
+  h1, h2, .display {
+    font-family: "Bagel Fat One", "Fredoka", cursive;
+    letter-spacing: 0.01em;
   }
 }
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
+}
+@keyframes bounce-soft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes float-blob {
+  0%, 100% { transform: translate(0,0) scale(1); }
+  50% { transform: translate(20px,-20px) scale(1.08); }
+}
+.animate-wiggle { animation: wiggle 1.8s ease-in-out infinite; }
+.animate-bounce-soft { animation: bounce-soft 2.2s ease-in-out infinite; }
+.animate-float-blob { animation: float-blob 9s ease-in-out infinite; }
