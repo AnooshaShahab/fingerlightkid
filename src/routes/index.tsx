@@ -618,7 +618,7 @@ function Index() {
           </section>
 
           <p className="display mt-6 text-center text-sm text-foreground/80">
-            made for tiny artists
+            Designed & Developed by Anusha Shahab
           </p>
         </main>
       </div>
